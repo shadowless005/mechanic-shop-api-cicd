@@ -30,6 +30,19 @@ def get_mechanics():
 
     return mechanics_schema.jsonify(mechanics), 200
 
+# Get Mechanics ORDERED BY MOST SERVICE TICKETS 
+@mechanic_bp.route("/most-tickets", methods=["GET"])
+def get_mechanics_by_most_tickets():
+    query = select(Mechanic)
+    mechanics = db.session.execute(query).scalars().all()
+
+    mechanics.sort(
+        key=lambda mechanic: len(mechanic.service_tickets),
+        reverse=True
+    )
+
+    return mechanics_schema.jsonify(mechanics), 200
+
 
 @mechanic_bp.route("/<int:mechanic_id>", methods=["PUT"])
 def update_mechanic(mechanic_id):

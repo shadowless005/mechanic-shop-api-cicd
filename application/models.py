@@ -17,6 +17,20 @@ service_ticket_mechanic = db.Table(
     )
 )
 
+service_ticket_inventory = db.Table(
+    "service_ticket_inventory",
+    db.Column(
+        "service_ticket_id",
+        db.ForeignKey("service_tickets.id"),
+        primary_key=True
+    ),
+    db.Column(
+        "inventory_id",
+        db.ForeignKey("inventory.id"),
+        primary_key=True    
+    )    
+)
+
 
 class Customer(db.Model):
     __tablename__ = "customers"
@@ -26,6 +40,7 @@ class Customer(db.Model):
     email: Mapped[str] = mapped_column(db.String(360), unique=True, nullable=False)
     phone: Mapped[str] = mapped_column(db.String(20), unique=True, nullable=False)
     address: Mapped[str] = mapped_column(db.String(255), nullable=False)
+    password: Mapped[str] = mapped_column(db.String(255), nullable=False)
 
     service_tickets: Mapped[List["ServiceTicket"]] = db.relationship(
         back_populates="customer"
@@ -52,6 +67,22 @@ class Mechanic(db.Model):
 
     def __repr__(self) -> str:
         return f"<Mechanic {self.name}>"
+
+
+class Inventory(db.Model):
+    __tablename__ = "inventory"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(db.String(255), nullable=False)
+    price: Mapped[float] = mapped_column(db.Float, nullable=False)
+
+    service_tickets: Mapped[List["ServiceTicket"]] = db.relationship(
+        secondary=service_ticket_inventory,
+        back_populates="inventory"
+    )
+
+    def __repr__(self) -> str:
+        return f"<Inventory {self.name}>"
 
 
 class ServiceTicket(db.Model):
@@ -83,5 +114,12 @@ class ServiceTicket(db.Model):
         back_populates="service_tickets"
     )
 
+    inventory: Mapped[List["Inventory"]] = db.relationship(
+        secondary=service_ticket_inventory,
+        back_populates="service_tickets"
+    )
+
     def __repr__(self) -> str:
         return f"<ServiceTicket {self.id}>"
+
+

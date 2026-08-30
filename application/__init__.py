@@ -1,5 +1,5 @@
 from flask import Flask
-from .extensions import db, ma
+from .extensions import db, ma, limiter, cache
 from config import Config
 
 def create_app():
@@ -8,6 +8,8 @@ def create_app():
 
     db.init_app(app)
     ma.init_app(app)
+    limiter.init_app(app)
+    cache.init_app(app)
 
     from . import models
 
@@ -33,6 +35,13 @@ def create_app():
     app.register_blueprint(
         service_ticket_bp,
         url_prefix="/service-tickets"
+    )
+
+    from application.blueprints.inventory import inventory_bp
+
+    app.register_blueprint(
+        inventory_bp,
+        url_prefix="/inventory"
     )
 
     return app

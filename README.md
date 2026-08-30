@@ -1,32 +1,45 @@
 # Mechanic Shop API
 
-A RESTful API for managing a mechanic shop built with Flask, SQLAlchemy, Marshmallow, and MySQL. The project follows the Application Factory Pattern and demonstrates CRUD operations and database relationships.
+A RESTful API built with Flask, SQLAlchemy, and Marshmallow for managing customers, mechanics, service tickets, and inventory in a mechanic shop. The project follows the Application Factory Pattern and demonstrates authentication, caching, rate limiting, pagination, and relational database management.
 
 ---
 
 ## Features
 
-### Customers
+### Customer Management
 
-- Create a customer
-- View all customers
-- View a customer by ID
-- Update customer information
-- Delete a customer
+- Customer CRUD operations
+- Customer login with JWT authentication
+- Protected customer routes
+- View logged-in customer's service tickets
 
-### Mechanics
+### Mechanic Management
 
-- Create a mechanic
-- View all mechanics
-- Update mechanic information
-- Delete a mechanic
+- Mechanic CRUD operations
+- Mechanics leaderboard (Most Tickets)
 
-### Service Tickets
+### Service Ticket Management
 
-- Create a service ticket
+- Create service tickets
 - View all service tickets
-- Assign a mechanic to a service ticket
-- Remove a mechanic from a service ticket
+- Assign mechanics
+- Remove mechanics
+- Edit assigned mechanics
+- Add inventory items to service tickets
+
+### Inventory Management
+
+- Inventory CRUD operations
+
+### Additional Features
+
+- JWT Authentication
+- Protected Routes
+- Rate Limiting
+- Response Caching
+- Pagination
+- One-to-Many Relationships
+- Many-to-Many Relationships
 
 ---
 
@@ -37,26 +50,10 @@ A RESTful API for managing a mechanic shop built with Flask, SQLAlchemy, Marshma
 - SQLAlchemy
 - Marshmallow
 - MySQL
+- Flask-Limiter
+- Flask-Caching
+- Python-JOSE (JWT)
 - Postman
-
----
-
-## Project Structure
-
-```
-mechanic-shop-api/
-│
-├── application/
-│   ├── blueprints/
-│   ├── extensions.py
-│   ├── models.py
-│   └── __init__.py
-│
-├── app.py
-├── config.py
-├── requirements.txt
-└── README.md
-```
 
 ---
 
@@ -67,8 +64,10 @@ mechanic-shop-api/
 - POST `/customers/`
 - GET `/customers/`
 - GET `/customers/<id>`
-- PUT `/customers/<id>`
-- DELETE `/customers/<id>`
+- PUT `/customers/`
+- DELETE `/customers/`
+- POST `/customers/login`
+- GET `/customers/my-tickets`
 
 ### Mechanics
 
@@ -76,6 +75,7 @@ mechanic-shop-api/
 - GET `/mechanics/`
 - PUT `/mechanics/<id>`
 - DELETE `/mechanics/<id>`
+- GET `/mechanics/most-tickets`
 
 ### Service Tickets
 
@@ -83,17 +83,21 @@ mechanic-shop-api/
 - GET `/service-tickets/`
 - PUT `/service-tickets/<ticket_id>/assign-mechanic/<mechanic_id>`
 - PUT `/service-tickets/<ticket_id>/remove-mechanic/<mechanic_id>`
+- PUT `/service-tickets/<ticket_id>/edit`
+- PUT `/service-tickets/<ticket_id>/add-inventory/<inventory_id>`
 
----
+### Inventory
 
-## Testing
-
-All API endpoints were tested using Postman.
+- POST `/inventory/`
+- GET `/inventory/`
+- GET `/inventory/<id>`
+- PUT `/inventory/<id>`
+- DELETE `/inventory/<id>`
 
 ---
 
 ## Author
 
-**Matthew Shin**
+Matthew Shin
 
 Coding Temple Software Engineering Bootcamp
