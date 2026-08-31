@@ -1,6 +1,6 @@
 # Mechanic Shop API
 
-A RESTful API built with Flask for managing customers, mechanics, service tickets, and inventory for an automotive repair shop. The application includes JWT authentication, Swagger documentation, and automated testing to ensure reliable API functionality.
+A RESTful API built with Flask for managing customers, mechanics, service tickets, and inventory for an automotive repair shop. The application includes JWT authentication, Swagger documentation, automated testing, CI/CD with GitHub Actions, and live deployment on Render.
 
 ## Features
 
@@ -64,12 +64,15 @@ A RESTful API built with Flask for managing customers, mechanics, service ticket
 - Python
 - Flask
 - Flask SQLAlchemy
+- SQLAlchemy
 - Marshmallow
 - MySQL
+- PostgreSQL
 - JWT Authentication
 - Swagger UI
-- SQLAlchemy
 - unittest
+- GitHub Actions
+- Render
 
 ## API Endpoints
 
@@ -108,15 +111,37 @@ A RESTful API built with Flask for managing customers, mechanics, service ticket
 - PUT `/inventory/<id>`
 - DELETE `/inventory/<id>`
 
+## Live API
+
+**Render Deployment:**  
+https://mechanic-shop-api-cicd.onrender.com
+
+**Swagger Documentation:**  
+https://mechanic-shop-api-cicd.onrender.com/api/docs/
+
+## CI/CD
+
+This project uses GitHub Actions to automatically:
+
+- Install project dependencies
+- Run all automated unit tests
+- Deploy the application to Render after successful tests
+
 ## Project Highlights
 
 - Full CRUD functionality
 - JWT-secured authentication
 - Swagger API documentation
 - Comprehensive automated test suite
+- GitHub Actions CI/CD pipeline
+- Live deployment on Render
 - RESTful API architecture
 - Modular Flask Blueprint structure
 - SQLAlchemy ORM with relational database design
+
+## Repository
+
+https://github.com/shadowless005/mechanic-shop-api-cicd
 
 ## Author
 
