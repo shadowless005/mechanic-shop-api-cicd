@@ -8,6 +8,7 @@ from application.models import Inventory
 from . import inventory_bp
 from .schemas import inventory_schema, inventories_schema
 
+
 # CREATE INVENTORY ITEM
 @inventory_bp.route("/", methods=["POST"])
 def create_inventory_item():
