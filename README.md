@@ -1,61 +1,75 @@
 # Mechanic Shop API
 
-A RESTful API built with Flask, SQLAlchemy, and Marshmallow for managing customers, mechanics, service tickets, and inventory in a mechanic shop. The project follows the Application Factory Pattern and demonstrates authentication, caching, rate limiting, pagination, and relational database management.
-
----
+A RESTful API built with Flask for managing customers, mechanics, service tickets, and inventory for an automotive repair shop. The application includes JWT authentication, Swagger documentation, and automated testing to ensure reliable API functionality.
 
 ## Features
 
 ### Customer Management
 
-- Customer CRUD operations
+- Customer registration
 - Customer login with JWT authentication
-- Protected customer routes
-- View logged-in customer's service tickets
+- View all customers
+- View customer by ID
+- Update customer information
+- Delete customer account
+- View authenticated customer's service tickets
 
 ### Mechanic Management
 
-- Mechanic CRUD operations
-- Mechanics leaderboard (Most Tickets)
+- Create mechanics
+- View all mechanics
+- Update mechanic information
+- Delete mechanics
+- View mechanics ranked by number of assigned service tickets
 
 ### Service Ticket Management
 
 - Create service tickets
 - View all service tickets
-- Assign mechanics
-- Remove mechanics
-- Edit assigned mechanics
+- Assign mechanics to service tickets
+- Remove mechanics from service tickets
+- Edit mechanic assignments
 - Add inventory items to service tickets
 
 ### Inventory Management
 
-- Inventory CRUD operations
+- Create inventory items
+- View all inventory items
+- View inventory item by ID
+- Update inventory items
+- Delete inventory items
 
-### Additional Features
+### Authentication & Security
 
 - JWT Authentication
-- Protected Routes
-- Rate Limiting
-- Response Caching
-- Pagination
-- One-to-Many Relationships
-- Many-to-Many Relationships
+- Protected customer endpoints
+- Password hashing
+- Token-based authorization
 
----
+### API Documentation
+
+- Interactive Swagger UI documentation
+
+### Automated Testing
+
+- Customer endpoint tests
+- Mechanic endpoint tests
+- Service ticket endpoint tests
+- Inventory endpoint tests
+- Authentication tests
+- Error handling tests
 
 ## Technologies Used
 
 - Python
 - Flask
-- SQLAlchemy
+- Flask SQLAlchemy
 - Marshmallow
 - MySQL
-- Flask-Limiter
-- Flask-Caching
-- Python-JOSE (JWT)
-- Postman
-
----
+- JWT Authentication
+- Swagger UI
+- SQLAlchemy
+- unittest
 
 ## API Endpoints
 
@@ -73,9 +87,9 @@ A RESTful API built with Flask, SQLAlchemy, and Marshmallow for managing custome
 
 - POST `/mechanics/`
 - GET `/mechanics/`
+- GET `/mechanics/most-tickets`
 - PUT `/mechanics/<id>`
 - DELETE `/mechanics/<id>`
-- GET `/mechanics/most-tickets`
 
 ### Service Tickets
 
@@ -94,10 +108,18 @@ A RESTful API built with Flask, SQLAlchemy, and Marshmallow for managing custome
 - PUT `/inventory/<id>`
 - DELETE `/inventory/<id>`
 
----
+## Project Highlights
+
+- Full CRUD functionality
+- JWT-secured authentication
+- Swagger API documentation
+- Comprehensive automated test suite
+- RESTful API architecture
+- Modular Flask Blueprint structure
+- SQLAlchemy ORM with relational database design
 
 ## Author
 
 Matthew Shin
 
-Coding Temple Software Engineering Bootcamp
+GitHub: https://github.com/shadowless005
