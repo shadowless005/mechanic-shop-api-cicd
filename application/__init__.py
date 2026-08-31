@@ -3,6 +3,7 @@ from flask import Flask
 from .extensions import db, ma, limiter, cache
 from config import Config
 
+
 SWAGGER_URL = "/api/docs"
 API_URL = "/static/swagger.yaml"
 
@@ -13,6 +14,7 @@ swaggerui_blueprint = get_swaggerui_blueprint(
         "app_name": "Mechanic Shop API"
     }
 )
+
 
 def create_app(config_class=Config):
     app = Flask(__name__)
@@ -57,8 +59,8 @@ def create_app(config_class=Config):
     )
 
     app.register_blueprint(
-    swaggerui_blueprint,
-    url_prefix=SWAGGER_URL
-)
+        swaggerui_blueprint,
+        url_prefix=SWAGGER_URL
+    )
 
     return app
