@@ -4,6 +4,10 @@ from application import create_app
 from application.extensions import db
 from config import TestingConfig
 
+from werkzeug.security import generate_password_hash
+from application.models import Customer, Inventory
+from application.utils.util import encode_token
+
 
 class TestInventory(unittest.TestCase):
 
@@ -15,10 +19,27 @@ class TestInventory(unittest.TestCase):
             db.drop_all()
             db.create_all()
 
+            staff = Customer(
+                name="Inventory Staff",
+                email="inventory-staff@example.com",
+                phone="4075559201",
+                address="123 Shop Street",
+                password=generate_password_hash("staff-test-password"),
+                is_staff=True
+            )
+            db.session.add(staff)
+            db.session.commit()
+
+            token = encode_token(staff.id)
+
+        # Existing inventory tests exercise authorized staff requests.
+        self.client.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {token}"
+
     def tearDown(self):
         with self.app.app_context():
             db.session.remove()
             db.drop_all()
+            db.engine.dispose()
 
     def test_create_inventory_item(self):
         payload = {
@@ -148,3 +169,71 @@ class TestInventory(unittest.TestCase):
             data["error"],
             "Inventory item not found."
         )
+    def test_inventory_writes_require_staff(self):
+        created = self.client.post(
+            "/inventory/",
+            json={"name": "Brake Pads", "price": 49.99}
+        )
+        self.assertEqual(created.status_code, 201)
+        inventory_id = created.get_json()["id"]
+
+        with self.app.app_context():
+            customer = Customer(
+                name="Regular Customer",
+                email="regular@example.com",
+                phone="4075559202",
+                address="456 Test Street",
+                password=generate_password_hash("customer-test-password")
+            )
+            db.session.add(customer)
+            db.session.commit()
+            customer_token = encode_token(customer.id)
+
+        # A fresh client has no default staff authorization.
+        client = self.app.test_client()
+
+        cases = [
+            ("anonymous", {}, 401),
+            (
+                "regular customer",
+                {"Authorization": f"Bearer {customer_token}"},
+                403
+            )
+        ]
+
+        for label, headers, expected_status in cases:
+            for method, url, payload in [
+                (
+                    "POST",
+                    "/inventory/",
+                    {"name": "Unauthorized Item", "price": 10}
+                ),
+                (
+                    "PUT",
+                    f"/inventory/{inventory_id}",
+                    {"price": 999}
+                ),
+                (
+                    "DELETE",
+                    f"/inventory/{inventory_id}",
+                    None
+                )
+            ]:
+                with self.subTest(user=label, method=method):
+                    response = client.open(
+                        url,
+                        method=method,
+                        headers=headers,
+                        json=payload
+                    )
+                    self.assertEqual(
+                        response.status_code,
+                        expected_status
+                    )
+
+        with self.app.app_context():
+            item = db.session.get(Inventory, inventory_id)
+            self.assertIsNotNone(item)
+            self.assertEqual(item.price, 49.99)
+            self.assertEqual(Inventory.query.count(), 1)
+    

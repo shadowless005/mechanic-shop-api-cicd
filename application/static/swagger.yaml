@@ -1,940 +1,1476 @@
-swagger: "2.0"
-
+swagger: '2.0'
 info:
-  title: "Mechanic Shop API"
-  description: "API for managing customers, mechanics, service tickets, and inventory."
-  version: "1.0.0"
-
-host: "mechanic-shop-api-cicd.onrender.com"
-
+  title: Mechanic Shop API
+  description: API for managing customers, mechanics, service tickets, and inventory.
+  version: 1.0.0
+host: mechanic-shop-api-cicd.onrender.com
 schemes:
-  - "https"
-
+- https
 consumes:
-  - "application/json"
-
+- application/json
 produces:
-  - "application/json"
-
+- application/json
 securityDefinitions:
   bearerAuth:
-    type: "apiKey"
-    name: "Authorization"
-    in: "header"
-
+    type: apiKey
+    name: Authorization
+    in: header
+    description: Enter Bearer followed by a space and the auth_token returned by POST /customers/login.
 paths:
   /customers/:
     post:
       tags:
-        - Customers
-      summary: "Create a new customer"
-      description: "Creates a new customer account."
+      - Customers
+      summary: Create a new customer
+      description: Creates a customer account. Limited to three requests per hour per client IP address.
+        Passwords are accepted as input and omitted from responses. Passwords are hashed before storage.
+        New accounts are regular customers; is_staff and id cannot be supplied.
       parameters:
-        - in: "body"
-          name: "body"
-          description: "Customer information"
-          required: true
-          schema:
-            $ref: "#/definitions/CustomerPayload"
+      - in: body
+        name: body
+        description: Customer information
+        required: true
+        schema:
+          $ref: '#/definitions/CustomerPayload'
       responses:
-        201:
-          description: "Customer created successfully"
+        '201':
+          description: Customer created successfully
           schema:
-            $ref: "#/definitions/CustomerResponse"
+            $ref: '#/definitions/CustomerResponse'
           examples:
             application/json:
               id: 1
-              name: "John Doe"
-              email: "john@example.com"
-              phone: "4075551234"
-              address: "123 Main St"
-              password: "password123"
-        400:
-          description: "Invalid customer data"
+              name: John Doe
+              email: john@example.com
+              phone: '4075551234'
+              address: 123 Main St
+        '400':
+          description: Invalid customer data
           schema:
-            $ref: "#/definitions/ErrorResponse"
+            $ref: '#/definitions/ValidationErrorResponse'
           examples:
             application/json:
-              error: "Invalid customer data"
-
+              name:
+              - Missing data for required field.
+        '409':
+          description: Email or phone is already in use, or the record is still referenced.
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+          examples:
+            application/json:
+              error: Email or phone is already in use, or the record is still referenced.
+        '429':
+          description: Customer registration rate limit exceeded.
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+          examples:
+            application/json:
+              error: Customer registration rate limit exceeded.
     get:
       tags:
-        - Customers
-      summary: "Get all customers"
-      description: "Returns a paginated list of customers."
+      - Customers
+      summary: Get all customers
+      description: Staff access required. Returns customers in ascending ID order, using page and per_page
+        query parameters. Results are cached for 60 seconds with separate cache entries for query strings.
       parameters:
-        - in: "query"
-          name: "page"
-          type: "integer"
-          required: false
-          description: "Page number"
-        - in: "query"
-          name: "per_page"
-          type: "integer"
-          required: false
-          description: "Number of customers per page"
+      - in: query
+        name: page
+        type: integer
+        required: false
+        description: Page number
+        default: 1
+        minimum: 1
+      - in: query
+        name: per_page
+        type: integer
+        required: false
+        description: Number of customers per page
+        default: 10
+        minimum: 1
+        maximum: 100
       responses:
-        200:
-          description: "Customers retrieved successfully"
+        '200':
+          description: Customers retrieved successfully
           schema:
-            $ref: "#/definitions/AllCustomersResponse"
+            $ref: '#/definitions/AllCustomersResponse'
           examples:
             application/json:
-              - id: 1
-                name: "John Doe"
-                email: "john@example.com"
-                phone: "4075551234"
-                address: "123 Main St"
-                password: "password123"
-
+            - id: 1
+              name: John Doe
+              email: john@example.com
+              phone: '4075551234'
+              address: 123 Main St
+        '400':
+          description: Invalid pagination bounds.
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+          examples:
+            application/json:
+              error: page must be positive and per_page must be 1 through 100.
+        '401':
+          description: Missing, invalid, expired token, or deleted account.
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+          examples:
+            application/json:
+              message: Missing, invalid, expired token, or deleted account.
+        '403':
+          description: Staff access required.
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+          examples:
+            application/json:
+              message: Staff access required.
+      security:
+      - bearerAuth: []
     put:
       tags:
-        - Customers
-      summary: "Update logged-in customer"
-      description: "Updates the account of the authenticated customer."
+      - Customers
+      summary: Update logged-in customer
+      description: Updates only the logged-in customer. Supply only fields to change; omitted fields remain
+        unchanged. Passwords are hashed. id and is_staff are not accepted.
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       parameters:
-        - in: "body"
-          name: "body"
-          description: "Updated customer information"
-          required: true
-          schema:
-            $ref: "#/definitions/CustomerPayload"
+      - in: body
+        name: body
+        description: Updated customer information
+        required: true
+        schema:
+          $ref: '#/definitions/CustomerUpdatePayload'
       responses:
-        200:
-          description: "Customer updated successfully"
+        '200':
+          description: Customer updated successfully
           schema:
-            $ref: "#/definitions/CustomerResponse"
+            $ref: '#/definitions/CustomerResponse'
           examples:
             application/json:
               id: 1
-              name: "John Smith"
-              email: "john@example.com"
-              phone: "4075551234"
-              address: "456 Oak Street"
-              password: "password123"
-        400:
-          description: "Invalid customer data"
+              name: John Smith
+              email: john@example.com
+              phone: '4075551234'
+              address: 456 Oak Street
+        '400':
+          description: Invalid customer data
           schema:
-            $ref: "#/definitions/ErrorResponse"
-        401:
-          description: "Authentication required"
-          schema:
-            $ref: "#/definitions/AuthErrorResponse"
+            $ref: '#/definitions/ValidationErrorResponse'
           examples:
             application/json:
-              message: "Token is missing!"
-
+              name:
+              - Missing data for required field.
+        '401':
+          description: Missing, invalid, expired token, or deleted account.
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+          examples:
+            application/json:
+              message: Missing, invalid, expired token, or deleted account.
+        '404':
+          description: Customer referenced by the token no longer exists.
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+          examples:
+            application/json:
+              error: Customer not found.
+        '409':
+          description: Email or phone is already in use, or the record is still referenced.
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+          examples:
+            application/json:
+              error: Email or phone is already in use, or the record is still referenced.
     delete:
       tags:
-        - Customers
-      summary: "Delete logged-in customer"
-      description: "Deletes the authenticated customer's account."
+      - Customers
+      summary: Delete logged-in customer
+      description: Deletes the authenticated customer's account.
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       responses:
-        200:
-          description: "Customer deleted successfully"
+        '200':
+          description: Customer deleted successfully
           schema:
-            $ref: "#/definitions/DeleteCustomerResponse"
+            $ref: '#/definitions/DeleteCustomerResponse'
           examples:
             application/json:
-              message: "Customer id: 1 successfully deleted."
-        401:
-          description: "Authentication required"
+              message: 'Customer id: 1 successfully deleted.'
+        '401':
+          description: Missing, invalid, expired token, or deleted account.
           schema:
-            $ref: "#/definitions/AuthErrorResponse"
+            type: object
+            properties:
+              message:
+                type: string
           examples:
             application/json:
-              message: "Token is missing!"
-
+              message: Missing, invalid, expired token, or deleted account.
+        '404':
+          description: Customer referenced by the token no longer exists.
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+          examples:
+            application/json:
+              error: Customer not found.
+        '409':
+          description: Cannot delete a customer with service tickets.
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+          examples:
+            application/json:
+              error: Cannot delete a customer with service tickets.
   /customers/{customer_id}:
     get:
       tags:
-        - Customers
-      summary: "Get customer by ID"
-      description: "Returns one customer using the customer ID."
+      - Customers
+      summary: Get customer by ID
+      description: Returns your own customer record, or any customer record for staff. Passwords and internal
+        staff flags are never included.
       parameters:
-        - in: "path"
-          name: "customer_id"
-          type: "integer"
-          required: true
-          description: "ID of the customer"
+      - in: path
+        name: customer_id
+        type: integer
+        required: true
+        description: ID of the customer
       responses:
-        200:
-          description: "Customer retrieved successfully"
+        '200':
+          description: Customer retrieved successfully
           schema:
-            $ref: "#/definitions/CustomerResponse"
+            $ref: '#/definitions/CustomerResponse'
           examples:
             application/json:
               id: 1
-              name: "John Doe"
-              email: "john@example.com"
-              phone: "4075551234"
-              address: "123 Main St"
-              password: "password123"
-        404:
-          description: "Customer not found"
+              name: John Doe
+              email: john@example.com
+              phone: '4075551234'
+              address: 123 Main St
+        '404':
+          description: Customer not found
           schema:
-            $ref: "#/definitions/ErrorResponse"
+            $ref: '#/definitions/ErrorResponse'
           examples:
             application/json:
-              error: "Customer not found."
-
+              error: Customer not found.
+        '401':
+          description: Missing, invalid, expired token, or deleted account.
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+          examples:
+            application/json:
+              message: Missing, invalid, expired token, or deleted account.
+        '403':
+          description: You can only view your own customer record.
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+          examples:
+            application/json:
+              message: You can only view your own customer record.
+      security:
+      - bearerAuth: []
   /customers/login:
     post:
       tags:
-        - Customers
-      summary: "Customer login"
-      description: "Validates customer credentials and returns a JWT authentication token."
+      - Customers
+      summary: Customer login
+      description: Validates customer credentials and returns a JWT authentication token.
       parameters:
-        - in: "body"
-          name: "body"
-          description: "Customer login credentials"
-          required: true
-          schema:
-            $ref: "#/definitions/LoginCredentials"
+      - in: body
+        name: body
+        description: Customer login credentials
+        required: true
+        schema:
+          $ref: '#/definitions/LoginCredentials'
       responses:
-        200:
-          description: "Login successful"
+        '200':
+          description: Login successful
           schema:
-            $ref: "#/definitions/LoginResponse"
+            $ref: '#/definitions/LoginResponse'
           examples:
             application/json:
-              status: "success"
-              message: "Successfully Logged In"
-              auth_token: "jwt-token"
-        400:
-          description: "Invalid login payload"
+              status: success
+              message: Successfully Logged In
+              auth_token: jwt-token
+        '400':
+          description: Invalid login payload
           schema:
-            $ref: "#/definitions/ErrorResponse"
-        401:
-          description: "Invalid email or password"
-          schema:
-            $ref: "#/definitions/AuthErrorResponse"
+            $ref: '#/definitions/ValidationErrorResponse'
           examples:
             application/json:
-              message: "Invalid email or password"
-
+              password:
+              - Missing data for required field.
+        '401':
+          description: Invalid email or password
+          schema:
+            $ref: '#/definitions/AuthErrorResponse'
+          examples:
+            application/json:
+              message: Invalid email or password
   /customers/my-tickets:
     get:
       tags:
-        - Customers
-      summary: "Get logged-in customer's service tickets"
-      description: "Returns all service tickets belonging to the authenticated customer."
+      - Customers
+      summary: Get logged-in customer's service tickets
+      description: Returns all service tickets belonging to the authenticated customer.
       security:
-        - bearerAuth: []
+      - bearerAuth: []
       responses:
-        200:
-          description: "Service tickets retrieved successfully"
+        '200':
+          description: Service tickets retrieved successfully
           schema:
-            $ref: "#/definitions/MyTicketsResponse"
+            $ref: '#/definitions/MyTicketsResponse'
           examples:
             application/json:
-              - id: 1
-                description: "Replace front brake pads"
-                vin: "1HGCM82633A123456"
-                customer_id: 1
-        401:
-          description: "Authentication required"
+            - id: 1
+              description: Replace front brake pads
+              vin: 1HGCM82633A123456
+              customer_id: 1
+        '401':
+          description: Missing, invalid, expired token, or deleted account.
           schema:
-            $ref: "#/definitions/AuthErrorResponse"
+            type: object
+            properties:
+              message:
+                type: string
           examples:
             application/json:
-              message: "Token is missing!"
-
+              message: Missing, invalid, expired token, or deleted account.
+        '404':
+          description: Customer referenced by the token no longer exists.
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+          examples:
+            application/json:
+              error: Customer not found.
   /mechanics/:
     post:
       tags:
-        - Mechanics
-      summary: "Create mechanic"
-      description: "Creates a new mechanic."
+      - Mechanics
+      summary: Create mechanic
+      description: Staff access required. Creates a new mechanic.
       parameters:
-        - in: "body"
-          name: "body"
-          description: "Mechanic information"
-          required: true
-          schema:
-            $ref: "#/definitions/MechanicPayload"
+      - in: body
+        name: body
+        description: Mechanic information
+        required: true
+        schema:
+          $ref: '#/definitions/MechanicPayload'
       responses:
-        201:
-          description: "Mechanic created successfully"
+        '201':
+          description: Mechanic created successfully
           schema:
-            $ref: "#/definitions/MechanicResponse"
+            $ref: '#/definitions/MechanicResponse'
           examples:
             application/json:
               id: 1
-              name: "Mike Johnson"
-              email: "mike@example.com"
-              phone: "4075552222"
-              address: "789 Garage Road"
+              name: Mike Johnson
+              email: mike@example.com
+              phone: '4075552222'
+              address: 789 Garage Road
               salary: 65000.0
-        400:
-          description: "Invalid mechanic data"
+        '400':
+          description: Invalid mechanic data
           schema:
-            $ref: "#/definitions/ErrorResponse"
-
-    get:
-      tags:
-        - Mechanics
-      summary: "Get all mechanics"
-      description: "Returns all mechanics."
-      responses:
-        200:
-          description: "Mechanics retrieved successfully"
-          schema:
-            $ref: "#/definitions/AllMechanicsResponse"
+            $ref: '#/definitions/ValidationErrorResponse'
           examples:
             application/json:
-              - id: 1
-                name: "Mike Johnson"
-                email: "mike@example.com"
-                phone: "4075552222"
-                address: "789 Garage Road"
-                salary: 65000.0
-
+              name:
+              - Missing data for required field.
+        '401':
+          description: Missing, invalid, expired token, or deleted account.
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+          examples:
+            application/json:
+              message: Missing, invalid, expired token, or deleted account.
+        '403':
+          description: Staff access required.
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+          examples:
+            application/json:
+              message: Staff access required.
+        '409':
+          description: Email or phone is already in use, or the record is still referenced.
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+          examples:
+            application/json:
+              error: Email or phone is already in use, or the record is still referenced.
+      security:
+      - bearerAuth: []
+    get:
+      tags:
+      - Mechanics
+      summary: Get all mechanics
+      description: Returns all mechanics.
+      responses:
+        '200':
+          description: Mechanics retrieved successfully
+          schema:
+            $ref: '#/definitions/AllMechanicsResponse'
+          examples:
+            application/json:
+            - id: 1
+              name: Mike Johnson
+              email: mike@example.com
+              phone: '4075552222'
+              address: 789 Garage Road
+              salary: 65000.0
   /mechanics/most-tickets:
     get:
       tags:
-        - Mechanics
-      summary: "Get mechanics ordered by most tickets"
-      description: "Returns mechanics ordered by the number of service tickets they have worked on."
+      - Mechanics
+      summary: Get mechanics ordered by most tickets
+      description: Returns mechanics in descending order of their current number of assigned service tickets.
       responses:
-        200:
-          description: "Mechanics retrieved successfully"
+        '200':
+          description: Mechanics retrieved successfully
           schema:
-            $ref: "#/definitions/AllMechanicsResponse"
+            $ref: '#/definitions/AllMechanicsResponse'
           examples:
             application/json:
-              - id: 1
-                name: "Mike Johnson"
-                email: "mike@example.com"
-                phone: "4075552222"
-                address: "789 Garage Road"
-                salary: 65000.0
-
+            - id: 1
+              name: Mike Johnson
+              email: mike@example.com
+              phone: '4075552222'
+              address: 789 Garage Road
+              salary: 65000.0
   /mechanics/{mechanic_id}:
     put:
       tags:
-        - Mechanics
-      summary: "Update mechanic"
-      description: "Updates an existing mechanic using the mechanic ID."
+      - Mechanics
+      summary: Update mechanic
+      description: Staff access required. Updates an existing mechanic using the mechanic ID.
       parameters:
-        - in: "path"
-          name: "mechanic_id"
-          type: "integer"
-          required: true
-          description: "ID of the mechanic"
-        - in: "body"
-          name: "body"
-          description: "Updated mechanic information"
-          required: true
-          schema:
-            $ref: "#/definitions/MechanicPayload"
+      - in: path
+        name: mechanic_id
+        type: integer
+        required: true
+        description: ID of the mechanic
+      - in: body
+        name: body
+        description: Updated mechanic information
+        required: true
+        schema:
+          $ref: '#/definitions/MechanicPayload'
       responses:
-        200:
-          description: "Mechanic updated successfully"
+        '200':
+          description: Mechanic updated successfully
           schema:
-            $ref: "#/definitions/MechanicResponse"
+            $ref: '#/definitions/MechanicResponse'
           examples:
             application/json:
               id: 1
-              name: "Michael Johnson"
-              email: "mike@example.com"
-              phone: "4075552222"
-              address: "999 Updated Garage Road"
+              name: Michael Johnson
+              email: mike@example.com
+              phone: '4075552222'
+              address: 999 Updated Garage Road
               salary: 70000.0
-        400:
-          description: "Invalid mechanic data"
+        '400':
+          description: Invalid mechanic data
           schema:
-            $ref: "#/definitions/ErrorResponse"
-        404:
-          description: "Mechanic not found"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+            $ref: '#/definitions/ValidationErrorResponse'
           examples:
             application/json:
-              error: "Mechanic not found."
-
+              name:
+              - Missing data for required field.
+        '404':
+          description: Mechanic not found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+          examples:
+            application/json:
+              error: Mechanic not found.
+        '401':
+          description: Missing, invalid, expired token, or deleted account.
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+          examples:
+            application/json:
+              message: Missing, invalid, expired token, or deleted account.
+        '403':
+          description: Staff access required.
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+          examples:
+            application/json:
+              message: Staff access required.
+        '409':
+          description: Email or phone is already in use, or the record is still referenced.
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+          examples:
+            application/json:
+              error: Email or phone is already in use, or the record is still referenced.
+      security:
+      - bearerAuth: []
     delete:
       tags:
-        - Mechanics
-      summary: "Delete mechanic"
-      description: "Deletes an existing mechanic using the mechanic ID."
+      - Mechanics
+      summary: Delete mechanic
+      description: Staff access required. Deletes an existing mechanic using the mechanic ID.
       parameters:
-        - in: "path"
-          name: "mechanic_id"
-          type: "integer"
-          required: true
-          description: "ID of the mechanic"
+      - in: path
+        name: mechanic_id
+        type: integer
+        required: true
+        description: ID of the mechanic
       responses:
-        200:
-          description: "Mechanic deleted successfully"
+        '200':
+          description: Mechanic deleted successfully
           schema:
-            $ref: "#/definitions/DeleteMechanicResponse"
+            $ref: '#/definitions/DeleteMechanicResponse'
           examples:
             application/json:
-              message: "Mechanic id: 1 successfully deleted."
-        404:
-          description: "Mechanic not found"
+              message: 'Mechanic id: 1 successfully deleted.'
+        '404':
+          description: Mechanic not found
           schema:
-            $ref: "#/definitions/ErrorResponse"
+            $ref: '#/definitions/ErrorResponse'
           examples:
             application/json:
-              error: "Mechanic not found."
-
+              error: Mechanic not found.
+        '401':
+          description: Missing, invalid, expired token, or deleted account.
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+          examples:
+            application/json:
+              message: Missing, invalid, expired token, or deleted account.
+        '403':
+          description: Staff access required.
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+          examples:
+            application/json:
+              message: Staff access required.
+        '409':
+          description: Email or phone is already in use, or the record is still referenced.
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+          examples:
+            application/json:
+              error: Email or phone is already in use, or the record is still referenced.
+      security:
+      - bearerAuth: []
   /inventory/:
     post:
       tags:
-        - Inventory
-      summary: "Create inventory item"
-      description: "Creates a new inventory item."
+      - Inventory
+      summary: Create inventory item
+      description: Staff access required. Creates a new inventory item.
       parameters:
-        - in: "body"
-          name: "body"
-          description: "Inventory item information"
-          required: true
-          schema:
-            $ref: "#/definitions/InventoryPayload"
+      - in: body
+        name: body
+        description: Inventory item information
+        required: true
+        schema:
+          $ref: '#/definitions/InventoryPayload'
       responses:
-        201:
-          description: "Inventory item created successfully"
+        '201':
+          description: Inventory item created successfully
           schema:
-            $ref: "#/definitions/InventoryResponse"
+            $ref: '#/definitions/InventoryResponse'
           examples:
             application/json:
               id: 1
-              name: "Brake Pads"
+              name: Brake Pads
               price: 49.99
-        400:
-          description: "Invalid inventory data"
+        '400':
+          description: Invalid inventory data
           schema:
-            $ref: "#/definitions/ErrorResponse"
-
-    get:
-      tags:
-        - Inventory
-      summary: "Get all inventory items"
-      description: "Returns all inventory items."
-      responses:
-        200:
-          description: "Inventory items retrieved successfully"
-          schema:
-            $ref: "#/definitions/AllInventoryResponse"
+            $ref: '#/definitions/ValidationErrorResponse'
           examples:
             application/json:
-              - id: 1
-                name: "Brake Pads"
-                price: 49.99
-
+              price:
+              - Not a valid number.
+        '401':
+          description: Missing, invalid, expired token, or deleted account.
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+          examples:
+            application/json:
+              message: Missing, invalid, expired token, or deleted account.
+        '403':
+          description: Staff access required.
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+          examples:
+            application/json:
+              message: Staff access required.
+      security:
+      - bearerAuth: []
+    get:
+      tags:
+      - Inventory
+      summary: Get all inventory items
+      description: Returns all inventory items.
+      responses:
+        '200':
+          description: Inventory items retrieved successfully
+          schema:
+            $ref: '#/definitions/AllInventoryResponse'
+          examples:
+            application/json:
+            - id: 1
+              name: Brake Pads
+              price: 49.99
   /inventory/{inventory_id}:
     get:
       tags:
-        - Inventory
-      summary: "Get inventory item by ID"
-      description: "Returns one inventory item using the inventory ID."
+      - Inventory
+      summary: Get inventory item by ID
+      description: Returns one inventory item using the inventory ID.
       parameters:
-        - in: "path"
-          name: "inventory_id"
-          type: "integer"
-          required: true
-          description: "ID of the inventory item"
+      - in: path
+        name: inventory_id
+        type: integer
+        required: true
+        description: ID of the inventory item
       responses:
-        200:
-          description: "Inventory item retrieved successfully"
+        '200':
+          description: Inventory item retrieved successfully
           schema:
-            $ref: "#/definitions/InventoryResponse"
+            $ref: '#/definitions/InventoryResponse'
           examples:
             application/json:
               id: 1
-              name: "Brake Pads"
+              name: Brake Pads
               price: 49.99
-        404:
-          description: "Inventory item not found"
+        '404':
+          description: Inventory item not found
           schema:
-            $ref: "#/definitions/ErrorResponse"
+            $ref: '#/definitions/ErrorResponse'
           examples:
             application/json:
-              error: "Inventory item not found."
-
+              error: Inventory item not found.
     put:
       tags:
-        - Inventory
-      summary: "Update inventory item"
-      description: "Updates an existing inventory item."
+      - Inventory
+      summary: Update inventory item
+      description: Staff access required. Updates the supplied fields on an existing inventory item. Name
+        and price are individually optional; omitted values remain unchanged.
       parameters:
-        - in: "path"
-          name: "inventory_id"
-          type: "integer"
-          required: true
-          description: "ID of the inventory item"
-        - in: "body"
-          name: "body"
-          description: "Updated inventory information"
-          required: true
-          schema:
-            $ref: "#/definitions/InventoryPayload"
+      - in: path
+        name: inventory_id
+        type: integer
+        required: true
+        description: ID of the inventory item
+      - in: body
+        name: body
+        description: Updated inventory information
+        required: true
+        schema:
+          $ref: '#/definitions/InventoryUpdatePayload'
       responses:
-        200:
-          description: "Inventory item updated successfully"
+        '200':
+          description: Inventory item updated successfully
           schema:
-            $ref: "#/definitions/InventoryResponse"
+            $ref: '#/definitions/InventoryResponse'
           examples:
             application/json:
               id: 1
-              name: "Brake Pads"
+              name: Brake Pads
               price: 59.99
-        400:
-          description: "Invalid inventory data"
+        '400':
+          description: Invalid inventory data
           schema:
-            $ref: "#/definitions/ErrorResponse"
-        404:
-          description: "Inventory item not found"
-          schema:
-            $ref: "#/definitions/ErrorResponse"
+            $ref: '#/definitions/ValidationErrorResponse'
           examples:
             application/json:
-              error: "Inventory item not found."
-
+              price:
+              - Not a valid number.
+        '404':
+          description: Inventory item not found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+          examples:
+            application/json:
+              error: Inventory item not found.
+        '401':
+          description: Missing, invalid, expired token, or deleted account.
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+          examples:
+            application/json:
+              message: Missing, invalid, expired token, or deleted account.
+        '403':
+          description: Staff access required.
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+          examples:
+            application/json:
+              message: Staff access required.
+      security:
+      - bearerAuth: []
     delete:
       tags:
-        - Inventory
-      summary: "Delete inventory item"
-      description: "Deletes an inventory item using the inventory ID."
+      - Inventory
+      summary: Delete inventory item
+      description: Staff access required. Deletes an inventory item using the inventory ID.
       parameters:
-        - in: "path"
-          name: "inventory_id"
-          type: "integer"
-          required: true
-          description: "ID of the inventory item"
+      - in: path
+        name: inventory_id
+        type: integer
+        required: true
+        description: ID of the inventory item
       responses:
-        200:
-          description: "Inventory item deleted successfully"
+        '200':
+          description: Inventory item deleted successfully
           schema:
-            $ref: "#/definitions/DeleteInventoryResponse"
+            $ref: '#/definitions/DeleteInventoryResponse'
           examples:
             application/json:
-              message: "Inventory item deleted successfully."
-        404:
-          description: "Inventory item not found"
+              message: Inventory item deleted successfully.
+        '404':
+          description: Inventory item not found
           schema:
-            $ref: "#/definitions/ErrorResponse"
+            $ref: '#/definitions/ErrorResponse'
           examples:
             application/json:
-              error: "Inventory item not found."
-
+              error: Inventory item not found.
+        '401':
+          description: Missing, invalid, expired token, or deleted account.
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+          examples:
+            application/json:
+              message: Missing, invalid, expired token, or deleted account.
+        '403':
+          description: Staff access required.
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+          examples:
+            application/json:
+              message: Staff access required.
+      security:
+      - bearerAuth: []
   /service-tickets/:
     post:
       tags:
-        - Service Tickets
-      summary: "Create service ticket"
-      description: "Creates a new service ticket for a customer."
+      - Service Tickets
+      summary: Create service ticket
+      description: Authenticated customers can create tickets only for their own customer_id. Staff can
+        create tickets for any existing customer.
       parameters:
-        - in: "body"
-          name: "body"
-          description: "Service ticket information"
-          required: true
-          schema:
-            $ref: "#/definitions/ServiceTicketPayload"
+      - in: body
+        name: body
+        description: Service ticket information
+        required: true
+        schema:
+          $ref: '#/definitions/ServiceTicketPayload'
       responses:
-        201:
-          description: "Service ticket created successfully"
+        '201':
+          description: Service ticket created successfully
           schema:
-            $ref: "#/definitions/ServiceTicketResponse"
+            $ref: '#/definitions/ServiceTicketResponse'
           examples:
             application/json:
               id: 1
-              description: "Replace front brake pads"
-              vin: "1HGCM82633A123456"
+              description: Replace front brake pads
+              vin: 1HGCM82633A123456
               customer_id: 1
-        400:
-          description: "Invalid service ticket data"
+              mechanics: []
+              inventory: []
+        '400':
+          description: Invalid service ticket data
           schema:
-            $ref: "#/definitions/ErrorResponse"
-
-    get:
-      tags:
-        - Service Tickets
-      summary: "Get all service tickets"
-      description: "Returns all service tickets."
-      responses:
-        200:
-          description: "Service tickets retrieved successfully"
-          schema:
-            $ref: "#/definitions/AllServiceTicketsResponse"
+            $ref: '#/definitions/ValidationErrorResponse'
           examples:
             application/json:
-              - id: 1
-                description: "Replace front brake pads"
-                vin: "1HGCM82633A123456"
-                customer_id: 1
-
+              vin:
+              - Missing data for required field.
+        '401':
+          description: Missing, invalid, expired token, or deleted account.
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+          examples:
+            application/json:
+              message: Missing, invalid, expired token, or deleted account.
+        '403':
+          description: You can only create tickets for your own account.
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+          examples:
+            application/json:
+              message: You can only create tickets for your own account.
+        '404':
+          description: Customer not found.
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+          examples:
+            application/json:
+              error: Customer not found.
+      security:
+      - bearerAuth: []
+    get:
+      tags:
+      - Service Tickets
+      summary: Get all service tickets
+      description: Returns only the authenticated customer's tickets. Staff receive all tickets. Results
+        are ordered by ID.
+      responses:
+        '200':
+          description: Service tickets retrieved successfully
+          schema:
+            $ref: '#/definitions/AllServiceTicketsResponse'
+          examples:
+            application/json:
+            - id: 1
+              description: Replace front brake pads
+              vin: 1HGCM82633A123456
+              customer_id: 1
+              mechanics: []
+              inventory: []
+        '401':
+          description: Missing, invalid, expired token, or deleted account.
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+          examples:
+            application/json:
+              message: Missing, invalid, expired token, or deleted account.
+      security:
+      - bearerAuth: []
   /service-tickets/{ticket_id}/assign-mechanic/{mechanic_id}:
     put:
       tags:
-        - Service Tickets
-      summary: "Assign mechanic to service ticket"
-      description: "Adds a mechanic to the selected service ticket."
+      - Service Tickets
+      summary: Assign mechanic to service ticket
+      description: Staff access required. Adds a mechanic to the selected service ticket. The IDs are
+        supplied in the URL; no JSON request body is required.
       parameters:
-        - in: "path"
-          name: "ticket_id"
-          type: "integer"
-          required: true
-          description: "ID of the service ticket"
-        - in: "path"
-          name: "mechanic_id"
-          type: "integer"
-          required: true
-          description: "ID of the mechanic"
+      - in: path
+        name: ticket_id
+        type: integer
+        required: true
+        description: ID of the service ticket
+      - in: path
+        name: mechanic_id
+        type: integer
+        required: true
+        description: ID of the mechanic
       responses:
-        200:
-          description: "Mechanic assigned successfully"
+        '200':
+          description: Mechanic assigned successfully
           schema:
-            $ref: "#/definitions/ServiceTicketResponse"
+            $ref: '#/definitions/ServiceTicketResponse'
           examples:
             application/json:
               id: 1
-              description: "Replace front brake pads"
-              vin: "1HGCM82633A123456"
+              description: Replace front brake pads
+              vin: 1HGCM82633A123456
               customer_id: 1
-        404:
-          description: "Service ticket or mechanic not found"
+              mechanics:
+              - 1
+              inventory: []
+        '404':
+          description: Service ticket or mechanic not found
           schema:
-            $ref: "#/definitions/ErrorResponse"
+            $ref: '#/definitions/ErrorResponse'
           examples:
             application/json:
-              error: "Service ticket not found."
-
+              error: Service ticket not found.
+        '401':
+          description: Missing, invalid, expired token, or deleted account.
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+          examples:
+            application/json:
+              message: Missing, invalid, expired token, or deleted account.
+        '403':
+          description: Staff access required.
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+          examples:
+            application/json:
+              message: Staff access required.
+      security:
+      - bearerAuth: []
   /service-tickets/{ticket_id}/remove-mechanic/{mechanic_id}:
     put:
       tags:
-        - Service Tickets
-      summary: "Remove mechanic from service ticket"
-      description: "Removes a mechanic from the selected service ticket."
+      - Service Tickets
+      summary: Remove mechanic from service ticket
+      description: Staff access required. Removes a mechanic from the selected service ticket. The IDs
+        are supplied in the URL; no JSON request body is required.
       parameters:
-        - in: "path"
-          name: "ticket_id"
-          type: "integer"
-          required: true
-          description: "ID of the service ticket"
-        - in: "path"
-          name: "mechanic_id"
-          type: "integer"
-          required: true
-          description: "ID of the mechanic"
+      - in: path
+        name: ticket_id
+        type: integer
+        required: true
+        description: ID of the service ticket
+      - in: path
+        name: mechanic_id
+        type: integer
+        required: true
+        description: ID of the mechanic
       responses:
-        200:
-          description: "Mechanic removed successfully"
+        '200':
+          description: Mechanic removed successfully
           schema:
-            $ref: "#/definitions/ServiceTicketResponse"
+            $ref: '#/definitions/ServiceTicketResponse'
           examples:
             application/json:
               id: 1
-              description: "Replace front brake pads"
-              vin: "1HGCM82633A123456"
+              description: Replace front brake pads
+              vin: 1HGCM82633A123456
               customer_id: 1
-        404:
-          description: "Service ticket or mechanic not found"
+              mechanics: []
+              inventory: []
+        '404':
+          description: Service ticket or mechanic not found
           schema:
-            $ref: "#/definitions/ErrorResponse"
+            $ref: '#/definitions/ErrorResponse'
           examples:
             application/json:
-              error: "Mechanic not found."
-
+              error: Mechanic not found.
+        '401':
+          description: Missing, invalid, expired token, or deleted account.
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+          examples:
+            application/json:
+              message: Missing, invalid, expired token, or deleted account.
+        '403':
+          description: Staff access required.
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+          examples:
+            application/json:
+              message: Staff access required.
+      security:
+      - bearerAuth: []
   /service-tickets/{ticket_id}/edit:
     put:
       tags:
-        - Service Tickets
-      summary: "Edit mechanics on service ticket"
-      description: "Adds and removes mechanics assigned to an existing service ticket."
+      - Service Tickets
+      summary: Edit mechanics on service ticket
+      description: Staff access required. Adds and removes mechanics assigned to an existing service ticket.
+        Both ID lists are optional. Unknown mechanic IDs are ignored by this endpoint. Requires a JSON
+        object with integer lists add_ids and remove_ids. Overlapping lists or non-list values return
+        400. Every mechanic must exist; any missing ID returns 404 before assignments change.
       parameters:
-        - in: "path"
-          name: "ticket_id"
-          type: "integer"
-          required: true
-          description: "ID of the service ticket"
-        - in: "body"
-          name: "body"
-          description: "Mechanic IDs to add or remove"
-          required: true
-          schema:
-            $ref: "#/definitions/EditMechanicsPayload"
+      - in: path
+        name: ticket_id
+        type: integer
+        required: true
+        description: ID of the service ticket
+      - in: body
+        name: body
+        description: Mechanic IDs to add or remove
+        required: true
+        schema:
+          $ref: '#/definitions/EditMechanicsPayload'
       responses:
-        200:
-          description: "Service ticket mechanics updated successfully"
+        '200':
+          description: Service ticket mechanics updated successfully
           schema:
-            $ref: "#/definitions/ServiceTicketResponse"
+            $ref: '#/definitions/ServiceTicketResponse'
           examples:
             application/json:
               id: 1
-              description: "Replace front brake pads"
-              vin: "1HGCM82633A123456"
+              description: Replace front brake pads
+              vin: 1HGCM82633A123456
               customer_id: 1
-        404:
-          description: "Service ticket not found"
+              mechanics:
+              - 2
+              inventory: []
+        '404':
+          description: Service ticket not found
           schema:
-            $ref: "#/definitions/ErrorResponse"
+            $ref: '#/definitions/ErrorResponse'
           examples:
             application/json:
-              error: "Service ticket not found."
-
+              error: Service ticket not found.
+        '401':
+          description: Missing, invalid, expired token, or deleted account.
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+          examples:
+            application/json:
+              message: Missing, invalid, expired token, or deleted account.
+        '403':
+          description: Staff access required.
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+          examples:
+            application/json:
+              message: Staff access required.
+        '400':
+          description: Invalid request data.
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+          examples:
+            application/json:
+              error: Invalid request data.
+      security:
+      - bearerAuth: []
   /service-tickets/{ticket_id}/add-inventory/{inventory_id}:
     put:
       tags:
-        - Service Tickets
-      summary: "Add inventory item to service ticket"
-      description: "Adds an inventory item to the selected service ticket."
+      - Service Tickets
+      summary: Add inventory item to service ticket
+      description: Staff access required. Adds an inventory item to the selected service ticket. The IDs
+        are supplied in the URL; no JSON request body is required.
       parameters:
-        - in: "path"
-          name: "ticket_id"
-          type: "integer"
-          required: true
-          description: "ID of the service ticket"
-        - in: "path"
-          name: "inventory_id"
-          type: "integer"
-          required: true
-          description: "ID of the inventory item"
+      - in: path
+        name: ticket_id
+        type: integer
+        required: true
+        description: ID of the service ticket
+      - in: path
+        name: inventory_id
+        type: integer
+        required: true
+        description: ID of the inventory item
       responses:
-        200:
-          description: "Inventory item added successfully"
+        '200':
+          description: Inventory item added successfully
           schema:
-            $ref: "#/definitions/ServiceTicketResponse"
+            $ref: '#/definitions/ServiceTicketResponse'
           examples:
             application/json:
               id: 1
-              description: "Replace front brake pads"
-              vin: "1HGCM82633A123456"
+              description: Replace front brake pads
+              vin: 1HGCM82633A123456
               customer_id: 1
-        404:
-          description: "Service ticket or inventory item not found"
+              mechanics: []
+              inventory:
+              - 1
+        '404':
+          description: Service ticket or inventory item not found
           schema:
-            $ref: "#/definitions/ErrorResponse"
+            $ref: '#/definitions/ErrorResponse'
           examples:
             application/json:
-              error: "Inventory item not found."
-
+              error: Inventory item not found.
+        '401':
+          description: Missing, invalid, expired token, or deleted account.
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+          examples:
+            application/json:
+              message: Missing, invalid, expired token, or deleted account.
+        '403':
+          description: Staff access required.
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+          examples:
+            application/json:
+              message: Staff access required.
+      security:
+      - bearerAuth: []
+  /health:
+    get:
+      tags:
+      - Deployment
+      summary: Check database readiness
+      description: Checks that the customer table and staff column are reachable. Returns no credentials
+        or database error details.
+      responses:
+        '200':
+          description: Database schema ready
+          schema:
+            type: object
+            properties:
+              status:
+                type: string
+              database:
+                type: string
+          examples:
+            application/json:
+              status: ok
+              database: connected
+        '503':
+          description: Database or schema unavailable
+          schema:
+            type: object
+            properties:
+              status:
+                type: string
+              database:
+                type: string
+          examples:
+            application/json:
+              status: unavailable
+              database: unavailable
 definitions:
   CustomerPayload:
-    type: "object"
+    type: object
     properties:
       name:
-        type: "string"
+        type: string
       email:
-        type: "string"
+        type: string
       phone:
-        type: "string"
+        type: string
       address:
-        type: "string"
+        type: string
       password:
-        type: "string"
+        type: string
     required:
-      - name
-      - email
-      - phone
-      - address
-      - password
-
+    - name
+    - email
+    - phone
+    - address
+    - password
+    example:
+      name: John Doe
+      email: john@example.com
+      phone: '4075551234'
+      address: 123 Main St
+      password: demo-password
   CustomerResponse:
-    type: "object"
+    type: object
     properties:
       id:
-        type: "integer"
+        type: integer
       name:
-        type: "string"
+        type: string
       email:
-        type: "string"
+        type: string
       phone:
-        type: "string"
+        type: string
       address:
-        type: "string"
-      password:
-        type: "string"
-
+        type: string
   AllCustomersResponse:
-    type: "array"
+    type: array
     items:
-      $ref: "#/definitions/CustomerResponse"
-
+      $ref: '#/definitions/CustomerResponse'
   LoginCredentials:
-    type: "object"
+    type: object
     properties:
       email:
-        type: "string"
+        type: string
       password:
-        type: "string"
+        type: string
     required:
-      - email
-      - password
-
+    - email
+    - password
+    example:
+      email: john@example.com
+      password: demo-password
   LoginResponse:
-    type: "object"
+    type: object
     properties:
       status:
-        type: "string"
+        type: string
       message:
-        type: "string"
+        type: string
       auth_token:
-        type: "string"
-
+        type: string
   DeleteCustomerResponse:
-    type: "object"
+    type: object
     properties:
       message:
-        type: "string"
-
+        type: string
   ServiceTicketSummary:
-    type: "object"
+    type: object
     properties:
       id:
-        type: "integer"
+        type: integer
       description:
-        type: "string"
+        type: string
       vin:
-        type: "string"
+        type: string
       customer_id:
-        type: "integer"
-
+        type: integer
   MyTicketsResponse:
-    type: "array"
+    type: array
     items:
-      $ref: "#/definitions/ServiceTicketSummary"
-
+      $ref: '#/definitions/ServiceTicketSummary'
   ErrorResponse:
-    type: "object"
+    type: object
     properties:
       error:
-        type: "string"
-
+        type: string
   AuthErrorResponse:
-    type: "object"
+    type: object
     properties:
       message:
-        type: "string"
-
+        type: string
   MechanicPayload:
-    type: "object"
+    type: object
     properties:
       name:
-        type: "string"
+        type: string
       email:
-        type: "string"
+        type: string
       phone:
-        type: "string"
+        type: string
       address:
-        type: "string"
+        type: string
       salary:
-        type: "number"
-        format: "float"
+        type: number
+        format: float
     required:
-      - name
-      - email
-      - phone
-      - address
-      - salary
-
+    - name
+    - email
+    - phone
+    - address
+    - salary
+    example:
+      name: Mike Johnson
+      email: mike@example.com
+      phone: '4075552222'
+      address: 789 Garage Road
+      salary: 65000.0
   MechanicResponse:
-    type: "object"
+    type: object
     properties:
       id:
-        type: "integer"
+        type: integer
       name:
-        type: "string"
+        type: string
       email:
-        type: "string"
+        type: string
       phone:
-        type: "string"
+        type: string
       address:
-        type: "string"
+        type: string
       salary:
-        type: "number"
-        format: "float"
-
+        type: number
+        format: float
   AllMechanicsResponse:
-    type: "array"
+    type: array
     items:
-      $ref: "#/definitions/MechanicResponse"
-
+      $ref: '#/definitions/MechanicResponse'
   DeleteMechanicResponse:
-    type: "object"
+    type: object
     properties:
       message:
-        type: "string"
-
+        type: string
+  InventoryUpdatePayload:
+    type: object
+    properties:
+      name:
+        type: string
+      price:
+        type: number
+        format: float
+    example:
+      price: 59.99
   InventoryPayload:
-    type: "object"
+    type: object
     properties:
       name:
-        type: "string"
+        type: string
       price:
-        type: "number"
-        format: "float"
+        type: number
+        format: float
     required:
-      - name
-      - price
-
+    - name
+    - price
+    example:
+      name: Brake Pads
+      price: 49.99
   InventoryResponse:
-    type: "object"
+    type: object
     properties:
       id:
-        type: "integer"
+        type: integer
       name:
-        type: "string"
+        type: string
       price:
-        type: "number"
-        format: "float"
-
+        type: number
+        format: float
   AllInventoryResponse:
-    type: "array"
+    type: array
     items:
-      $ref: "#/definitions/InventoryResponse"
-
+      $ref: '#/definitions/InventoryResponse'
   DeleteInventoryResponse:
-    type: "object"
+    type: object
     properties:
       message:
-        type: "string"
-
+        type: string
   ServiceTicketPayload:
-    type: "object"
+    type: object
     properties:
       description:
-        type: "string"
+        type: string
       vin:
-        type: "string"
+        type: string
       customer_id:
-        type: "integer"
+        type: integer
     required:
-      - description
-      - vin
-      - customer_id
-
+    - description
+    - vin
+    - customer_id
+    example:
+      description: Replace front brake pads
+      vin: 1HGCM82633A123456
+      customer_id: 1
   ServiceTicketResponse:
-    type: "object"
+    type: object
     properties:
       id:
-        type: "integer"
+        type: integer
       description:
-        type: "string"
+        type: string
       vin:
-        type: "string"
+        type: string
       customer_id:
-        type: "integer"
-
+        type: integer
+      mechanics:
+        type: array
+        items:
+          type: integer
+      inventory:
+        type: array
+        items:
+          type: integer
   AllServiceTicketsResponse:
-    type: "array"
+    type: array
     items:
-      $ref: "#/definitions/ServiceTicketResponse"
-
+      $ref: '#/definitions/ServiceTicketResponse'
   EditMechanicsPayload:
-    type: "object"
+    type: object
     properties:
       add_ids:
-        type: "array"
+        type: array
         items:
-          type: "integer"
+          type: integer
       remove_ids:
-        type: "array"
+        type: array
         items:
-          type: "integer"
+          type: integer
+    example:
+      add_ids:
+      - 2
+      remove_ids:
+      - 1
+  ValidationErrorResponse:
+    type: object
+    description: Validation messages keyed by field name; _schema may contain whole-request errors.
+    additionalProperties:
+      type: array
+      items:
+        type: string
+    example:
+      name:
+      - Missing data for required field.
+  CustomerUpdatePayload:
+    type: object
+    properties:
+      name:
+        type: string
+      email:
+        type: string
+      phone:
+        type: string
+      address:
+        type: string
+      password:
+        type: string
+    example:
+      address: 456 Oak Street

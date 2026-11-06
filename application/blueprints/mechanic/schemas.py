@@ -4,6 +4,7 @@ from application.models import Mechanic
 
 class MechanicSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
+        dump_only = ("id",)
         model = Mechanic
 
 

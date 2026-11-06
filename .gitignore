@@ -1,8 +1,11 @@
 __pycache__/
 *.py[cod]
-*.sqlite3
+*.sqlite*
 *.db
 .env
+.env.*
+!.env.example
 venv/
+.venv/
 .DS_Store
-.env
+wheelhouse/

@@ -1,4 +1,5 @@
 from typing import List
+from sqlalchemy import false
 from sqlalchemy.orm import Mapped, mapped_column
 from application.extensions import db
 
@@ -41,6 +42,12 @@ class Customer(db.Model):
     phone: Mapped[str] = mapped_column(db.String(20), unique=True, nullable=False)
     address: Mapped[str] = mapped_column(db.String(255), nullable=False)
     password: Mapped[str] = mapped_column(db.String(255), nullable=False)
+    is_staff: Mapped[bool] = mapped_column(
+        db.Boolean,
+        nullable=False,
+        default=False,
+        server_default=false()
+    )
 
     service_tickets: Mapped[List["ServiceTicket"]] = db.relationship(
         back_populates="customer"

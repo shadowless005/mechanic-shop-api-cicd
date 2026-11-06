@@ -1,13 +1,15 @@
-from flask import request, jsonify
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask import request, jsonify, g
 from marshmallow import ValidationError
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from application.extensions import db, limiter, cache
 from application.models import Customer
 
 from . import customer_bp
 from .schemas import customer_schema, customers_schema, login_schema
-from application.utils.util import encode_token, token_required
+from application.utils.util import encode_token, token_required, staff_required
 
 
 
@@ -16,25 +18,37 @@ from application.utils.util import encode_token, token_required
 @limiter.limit("3 per hour")
 def create_customer():
     try:
-        customer_data = customer_schema.load(request.json)
+        customer_data = customer_schema.load(request.get_json(silent=True))
     except ValidationError as e:
         return jsonify(e.messages), 400
+
+    customer_data["password"] = generate_password_hash(
+        customer_data["password"]
+    )
 
     new_customer = Customer(**customer_data)
 
     db.session.add(new_customer)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"error": "Email or phone is already in use, or the record is still referenced."}), 409
+    cache.clear()
 
     return customer_schema.jsonify(new_customer), 201
 
 
 # GET ALL CUSTOMERS
 @customer_bp.route("/", methods=["GET"])
-@cache.cached(timeout=60)
+@staff_required
+@cache.cached(timeout=60, query_string=True)
 def get_customers():
     page = request.args.get("page", default=1, type=int)
     per_page = request.args.get("per_page", default=10, type=int)
-    query = select(Customer)
+    if page < 1 or not 1 <= per_page <= 100:
+        return jsonify({"error": "page must be positive and per_page must be 1 through 100."}), 400
+    query = select(Customer).order_by(Customer.id)
     customers = db.session.execute(query.offset((page - 1) * per_page).limit(per_page)).scalars().all()
 
     return customers_schema.jsonify(customers), 200
@@ -42,7 +56,11 @@ def get_customers():
 
 # GET ONE CUSTOMER
 @customer_bp.route("/<int:customer_id>", methods=["GET"])
-def get_customer(customer_id):
+@token_required
+def get_customer(authenticated_customer_id, customer_id):
+    if not g.current_customer.is_staff and authenticated_customer_id != customer_id:
+        return jsonify({"message": "You can only view your own customer record."}), 403
+
     customer = db.session.get(Customer, customer_id)
 
     if not customer:
@@ -61,14 +79,23 @@ def update_customer(customer_id):
         return jsonify({"error": "Customer not found."}), 404
 
     try:
-        customer_data = customer_schema.load(request.json)
+        customer_data = customer_schema.load(request.get_json(silent=True), partial=True)
     except ValidationError as e:
         return jsonify(e.messages), 400
 
+    if "password" in customer_data:
+        customer_data["password"] = generate_password_hash(
+            customer_data["password"]
+        )
     for key, value in customer_data.items():
         setattr(customer, key, value)
 
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"error": "Email or phone is already in use, or the record is still referenced."}), 409
+    cache.clear()
 
     return customer_schema.jsonify(customer), 200
 
@@ -82,8 +109,16 @@ def delete_customer(customer_id):
     if not customer:
         return jsonify({"error": "Customer not found."}), 404
 
+    if customer.service_tickets:
+        return jsonify({"error": "Cannot delete a customer with service tickets."}), 409
+
     db.session.delete(customer)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"error": "Email or phone is already in use, or the record is still referenced."}), 409
+    cache.clear()
 
     return jsonify({
         "message": f"Customer id: {customer_id} successfully deleted."
@@ -94,7 +129,7 @@ def delete_customer(customer_id):
 @customer_bp.route("/login", methods=["POST"])
 def login():
     try:
-        credentials = login_schema.load(request.json)
+        credentials = login_schema.load(request.get_json(silent=True))
     except ValidationError as e:
         return jsonify(e.messages), 400
 
@@ -104,7 +139,7 @@ def login():
     query = select(Customer).where(Customer.email == email)
     customer = db.session.execute(query).scalar_one_or_none()
 
-    if customer and customer.password == password:
+    if customer and check_password_hash(customer.password, password):
         auth_token = encode_token(customer.id)
 
         return jsonify({

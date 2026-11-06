@@ -1,9 +1,13 @@
 import unittest
 
+from werkzeug.security import generate_password_hash
+
 from application import create_app
 from application.extensions import db
-from application.models import ServiceTicket
+from application.models import Customer, ServiceTicket
+from application.utils.util import encode_token
 from config import TestingConfig
+
 
 
 class TestServiceTickets(unittest.TestCase):
@@ -16,10 +20,26 @@ class TestServiceTickets(unittest.TestCase):
             db.drop_all()
             db.create_all()
 
+            staff = Customer(
+                name="Service Ticket Staff",
+                email="ticket-staff@example.com",
+                phone="4075559301",
+                address="123 Shop Street",
+                password=generate_password_hash("staff-test-password"),
+                is_staff=True
+            )
+            db.session.add(staff)
+            db.session.commit()
+
+            token = encode_token(staff.id)
+
+        self.client.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {token}"
+
     def tearDown(self):
         with self.app.app_context():
             db.session.remove()
             db.drop_all()
+            db.engine.dispose()
 
     def test_create_service_ticket(self):
         customer_payload = {
@@ -153,6 +173,16 @@ class TestServiceTickets(unittest.TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
+
+        with self.app.app_context():
+            ticket = db.session.get(ServiceTicket, ticket_id)
+
+            self.assertIsNotNone(ticket)
+            self.assertIn(
+                mechanic_id,
+                [mechanic.id for mechanic in ticket.mechanics]
+            )
+        
 
     def test_remove_mechanic_from_service_ticket(self):
         customer_payload = {
@@ -332,7 +362,11 @@ class TestServiceTickets(unittest.TestCase):
             "/inventory/",
             json=inventory_payload
         )
-
+        self.assertEqual(
+            inventory_response.status_code,
+            201,
+            inventory_response.get_json()
+        )
         inventory_id = inventory_response.get_json()["id"]
 
         response = self.client.put(
@@ -364,3 +398,105 @@ class TestServiceTickets(unittest.TestCase):
             data["error"],
             "Service ticket not found."
         )                        
+
+    def test_edit_mechanics_rejects_invalid_requests(self):
+        from application.models import Customer
+
+        with self.app.app_context():
+            customer = Customer(
+                name="Validation Customer",
+                email="validation@example.com",
+                phone="4075559101",
+                address="123 Test Street",
+                password="unused-test-fixture"
+            )
+            db.session.add(customer)
+            db.session.flush()
+
+            ticket = ServiceTicket(
+                description="Validation test",
+                vin="1HGCM82633A123456",
+                customer_id=customer.id
+            )
+            db.session.add(ticket)
+            db.session.commit()
+            ticket_id = ticket.id
+
+        url = f"/service-tickets/{ticket_id}/edit"
+
+        invalid_requests = [
+            ("empty body", {}),
+            ("malformed JSON", {
+                "data": "{",
+                "content_type": "application/json"
+            }),
+            ("array body", {"json": []}),
+            ("non-list IDs", {"json": {"add_ids": "1"}}),
+            ("string ID", {"json": {"add_ids": ["1"]}}),
+            ("boolean ID", {"json": {"add_ids": [True]}}),
+            ("conflicting IDs", {
+                "json": {"add_ids": [1], "remove_ids": [1]}
+            })
+        ]
+
+        for label, request_options in invalid_requests:
+            with self.subTest(case=label):
+                response = self.client.put(url, **request_options)
+
+                self.assertEqual(response.status_code, 400)
+                self.assertIn("error", response.get_json())
+
+        with self.app.app_context():
+            ticket = db.session.get(ServiceTicket, ticket_id)
+            self.assertEqual(len(ticket.mechanics), 0)
+
+    def test_edit_mechanics_missing_id_leaves_assignments_unchanged(self):
+        from application.models import Customer, Mechanic
+
+        with self.app.app_context():
+            customer = Customer(
+                name="Missing ID Customer",
+                email="missing-id@example.com",
+                phone="4075559102",
+                address="456 Test Street",
+                password="unused-test-fixture"
+            )
+            mechanic = Mechanic(
+                name="Demo Mechanic",
+                email="demo-mechanic@example.com",
+                phone="4075559103",
+                address="789 Garage Road",
+                salary=65000
+            )
+            db.session.add_all([customer, mechanic])
+            db.session.flush()
+
+            ticket = ServiceTicket(
+                description="Missing mechanic test",
+                vin="1HGCM82633A123457",
+                customer_id=customer.id
+            )
+            db.session.add(ticket)
+            db.session.commit()
+
+            ticket_id = ticket.id
+            mechanic_id = mechanic.id
+            missing_id = mechanic_id + 1000
+
+        response = self.client.put(
+            f"/service-tickets/{ticket_id}/edit",
+            json={
+                "add_ids": [mechanic_id, missing_id],
+                "remove_ids": []
+            }
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(
+            response.get_json()["error"],
+            f"Mechanic id: {missing_id} not found."
+        )
+
+        with self.app.app_context():
+            ticket = db.session.get(ServiceTicket, ticket_id)
+            self.assertEqual(len(ticket.mechanics), 0)    

@@ -2,18 +2,19 @@ from flask import request, jsonify
 from sqlalchemy import select
 from marshmallow import ValidationError
 
+from application.utils.util import staff_required
 from application.extensions import db
 from application.models import Inventory
 
 from . import inventory_bp
 from .schemas import inventory_schema, inventories_schema
 
-
 # CREATE INVENTORY ITEM
 @inventory_bp.route("/", methods=["POST"])
+@staff_required
 def create_inventory_item():
     try:
-        inventory_data = inventory_schema.load(request.json)
+        inventory_data = inventory_schema.load(request.get_json(silent=True))
     except ValidationError as e:
         return jsonify(e.messages), 400
 
@@ -44,6 +45,7 @@ def get_inventory_item(inventory_id):
 
 # UPDATE INVENTORY ITEM
 @inventory_bp.route("/<int:inventory_id>", methods=["PUT"])
+@staff_required
 def update_inventory_item(inventory_id):
     inventory_item = db.session.get(Inventory, inventory_id)
 
@@ -51,7 +53,7 @@ def update_inventory_item(inventory_id):
         return jsonify({"error": "Inventory item not found."}), 404
 
     try:
-        inventory_data = inventory_schema.load(request.json, partial=True)
+        inventory_data = inventory_schema.load(request.get_json(silent=True), partial=True)
     except ValidationError as e:
         return jsonify(e.messages), 400
 
@@ -64,6 +66,7 @@ def update_inventory_item(inventory_id):
 
 # DELETE INVENTORY ITEM
 @inventory_bp.route("/<int:inventory_id>", methods=["DELETE"])
+@staff_required
 def delete_inventory_item(inventory_id):
     inventory = db.session.get(Inventory, inventory_id)
 

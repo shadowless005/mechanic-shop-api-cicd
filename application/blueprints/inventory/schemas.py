@@ -4,6 +4,7 @@ from application.models import Inventory
 
 class InventorySchema(ma.SQLAlchemyAutoSchema):
     class Meta:
+        dump_only = ("id",)
         model = Inventory
 
 
